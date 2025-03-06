@@ -47,10 +47,15 @@ app.use((ctx) => {
   };
 });
 
+// 统一的请求处理函数
+async function handler(request: Request): Promise<Response> {
+  return await app.handle(request) || new Response("Not Found", { status: 404 });
+}
+
 // 根据环境选择服务器启动方式
 if (Deno.env.get("DENO_DEPLOYMENT_ID")) {
   // Deno Deploy 环境
-  Deno.serve(app.handle.bind(app));
+  Deno.serve(handler);
 } else {
   // 本地开发环境
   const port = 8000;
