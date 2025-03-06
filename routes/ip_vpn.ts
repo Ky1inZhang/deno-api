@@ -1,6 +1,5 @@
 import { Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
 import { isValidIP } from "../utils/ip_validator.ts";
-import { getClientIP } from "../utils/client_ip.ts";
 
 const router = new Router();
 
@@ -8,10 +7,10 @@ const router = new Router();
 router.prefix("/ip-vpn");
 
 // 处理 IP VPN 检测请求
-router.get("/:ip?", async (ctx) => {
+router.get("/:ip", async (ctx) => {
   try {
-    // 获取 IP 参数，如果没有则使用客户端 IP
-    const ip = ctx.params.ip || getClientIP(ctx);
+    const ip = ctx.params.ip;
+    
     // 验证 IP 地址格式
     if (!ip || !isValidIP(ip)) {
       ctx.response.status = 400;
@@ -72,7 +71,7 @@ router.get("/:ip?", async (ctx) => {
 // 处理路由根路径
 router.get("/", (ctx) => {
   ctx.response.body = { 
-    message: "请在 URL 中添加要查询的 IP 地址，例如: /ip-vpn/104.28.64.54，或者直接访问 /ip-vpn 获取您的 IP 信息",
+    message: "请在 URL 中添加要查询的 IP 地址，例如: /ip-vpn/104.28.64.54",
     note: "此接口返回 IP 地址的 VPN/代理检测信息"
   };
 });

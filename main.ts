@@ -134,7 +134,4 @@ async function handler(request: Request): Promise<Response> {
 
 // 启动服务器
 const port = 8000;
-console.log(`服务器运行在 http://localhost:${port}`);
-
-// 在 Deno Deploy 和本地环境中使用相同的启动方式
 Deno.serve({ port }, handler);
