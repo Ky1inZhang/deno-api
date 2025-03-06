@@ -10,21 +10,28 @@ router.prefix("/ip-geo");
 // 处理 IP 地理位置信息请求
 router.get("/:ip?", async (ctx) => {
   try {
+    console.log("=== 开始处理 IP 地理位置请求 ===");
+    console.log("URL 参数:", ctx.params);
+
     // 获取 IP 参数，如果没有则使用客户端 IP
     const ip = ctx.params.ip || getClientIP(ctx);
+    console.log("最终使用的 IP:", ip);
     
     // 验证 IP 地址格式
     if (!ip || !isValidIP(ip)) {
+      console.log("IP 地址验证失败");
       ctx.response.status = 400;
       ctx.response.body = { error: "无效的 IP 地址格式（支持 IPv4 和 IPv6）" };
       return;
     }
 
+    console.log("开始请求外部 API");
     // 发起请求获取数据
     const response = await fetch(`https://ipinfo.io/widget/demo/${ip}?dataset=geolocation`);
     
     // 检查响应状态
     if (response.status === 429) {
+      console.log("API 请求频率限制");
       ctx.response.status = 429;
       ctx.response.body = { 
         error: "请求频率超限，请稍后再试",
@@ -34,6 +41,7 @@ router.get("/:ip?", async (ctx) => {
     }
 
     if (!response.ok) {
+      console.log("API 请求失败:", response.status, response.statusText);
       ctx.response.status = response.status;
       ctx.response.body = { 
         error: `API 请求失败: ${response.statusText}`,
@@ -45,10 +53,13 @@ router.get("/:ip?", async (ctx) => {
     // 尝试解析响应
     let data;
     const contentType = response.headers.get("content-type");
+    console.log("响应 Content-Type:", contentType);
+    
     if (contentType && contentType.includes("application/json")) {
       data = await response.json();
     } else {
       const text = await response.text();
+      console.log("收到的响应文本:", text);
       try {
         data = JSON.parse(text);
       } catch (_e) {
@@ -57,11 +68,12 @@ router.get("/:ip?", async (ctx) => {
       }
     }
 
+    console.log("成功获取数据");
     // 设置响应头
     ctx.response.headers.set("Content-Type", "application/json");
     ctx.response.body = data;
   } catch (error) {
-    console.error("Error:", error);
+    console.error("处理请求时发生错误:", error);
     ctx.response.status = 500;
     ctx.response.body = { 
       error: "服务器错误",
