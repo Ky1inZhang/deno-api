@@ -11,7 +11,7 @@ router.prefix("/ip-vpn");
 router.get("/:ip?", async (ctx) => {
   try {
     // 获取 IP 参数，如果没有则使用客户端 IP
-    const ip = ctx.params.ip || getClientIP(ctx.request.headers);
+    const ip = ctx.params.ip || getClientIP(ctx);
     
     // 验证 IP 地址格式
     if (!ip || !isValidIP(ip)) {
