@@ -1,5 +1,3 @@
-/// <reference types="deno" />
-
 import { Application } from "https://deno.land/x/oak@v12.6.1/mod.ts";
 import { router as ipScoreRouter } from "./routes/ip_score.ts";
 import { router as ipGeoRouter } from "./routes/ip_geo.ts";

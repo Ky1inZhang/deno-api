@@ -49,7 +49,7 @@ router.get("/:ip", async (ctx) => {
       const text = await response.text();
       try {
         data = JSON.parse(text);
-      } catch (e) {
+      } catch (_e) {
         console.error("解析响应失败:", text);
         throw new Error("无效的 JSON 响应");
       }
