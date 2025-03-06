@@ -1,5 +1,6 @@
 import { Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
 import { isValidIP } from "../utils/ip_validator.ts";
+import { getClientIP } from "../utils/client_ip.ts";
 
 const router = new Router();
 
@@ -10,9 +11,10 @@ const scoreRegex = /<div class="score">Fraud Score: (\d+)<\/div>/;
 router.prefix("/ip-score");
 
 // 处理 IP 评分请求
-router.get("/:ip", async (ctx) => {
+router.get("/:ip?", async (ctx) => {
   try {
-    const ip = ctx.params.ip;
+    // 获取 IP 参数，如果没有则使用客户端 IP
+    const ip = ctx.params.ip || getClientIP(ctx.request.headers);
     
     // 验证 IP 地址格式
     if (!ip || !isValidIP(ip)) {
@@ -47,7 +49,7 @@ router.get("/:ip", async (ctx) => {
 
 // 处理路由根路径
 router.get("/", (ctx) => {
-  ctx.response.body = { message: "请在 URL 中添加要查询的 IP 地址，例如: /ip-score/208.83.237.153" };
+  ctx.response.body = { message: "请在 URL 中添加要查询的 IP 地址，例如: /ip-score/208.83.237.153，或者直接访问 /ip-score 获取您的 IP 信息" };
 });
 
 export { router }; 
