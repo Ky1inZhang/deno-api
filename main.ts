@@ -132,13 +132,9 @@ async function handler(request: Request): Promise<Response> {
   return await app.handle(request) || new Response("Not Found", { status: 404 });
 }
 
-// 根据环境选择服务器启动方式
-if (Deno.env.get("DENO_DEPLOYMENT_ID")) {
-  // Deno Deploy 环境
-  Deno.serve(handler);
-} else {
-  // 本地开发环境
-  const port = 8000;
-  console.log(`服务器运行在 http://localhost:${port}`);
-  await app.listen({ port });
-}
+// 启动服务器
+const port = 8000;
+console.log(`服务器运行在 http://localhost:${port}`);
+
+// 在 Deno Deploy 和本地环境中使用相同的启动方式
+Deno.serve({ port }, handler);
