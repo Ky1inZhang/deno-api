@@ -3,68 +3,36 @@ import { oakCors } from "https://deno.land/x/cors@v1.2.2/mod.ts";
 
 const router = new Router();
 
+// 类型断言函数：确保地址是网络地址
+function assertIsNetAddr(addr: Deno.Addr): asserts addr is Deno.NetAddr {
+  if (!["tcp", "udp"].includes(addr.transport)) {
+    throw new Error("不是有效的网络地址");
+  }
+}
+
 // 获取客户端真实IP地址
 function getClientIP(ctx: any): string {
-  // 记录所有可能的IP来源
-  const ipSources: Record<string, string | undefined> = {};
-
-  // 1. 从连接信息获取
   try {
-    const conn = ctx.request.serverRequest.conn;
-    if (conn && conn.remoteAddr) {
-      const addr = conn.remoteAddr as Deno.Addr;
-      if ('hostname' in addr) {
-        ipSources['remoteAddr'] = addr.hostname;
-      }
+    // 获取原始的连接信息
+    const serverRequest = ctx.request.originalRequest?.serverRequest;
+    if (!serverRequest) {
+      throw new Error("无法获取服务器请求信息");
     }
-  } catch (e) {
-    console.log('获取连接信息失败:', e);
-  }
 
-  // 2. 常见的代理头
-  const proxyHeaders = [
-    'CF-Connecting-IP',    // Cloudflare
-    'X-Real-IP',          // Nginx
-    'X-Forwarded-For',    // 通用
-    'True-Client-IP',     // Akamai
-    'X-Client-IP',        // 通用
-    'X-Cluster-Client-IP',// 负载均衡
-    'Fastly-Client-IP',   // Fastly CDN
-    'X-Original-Forwarded-For',
-    'Proxy-Client-IP',
-    'WL-Proxy-Client-IP',
-    'HTTP_CLIENT_IP',
-    'HTTP_X_FORWARDED_FOR'
-  ];
-
-  for (const header of proxyHeaders) {
-    const value = ctx.request.headers.get(header);
-    if (value) {
-      ipSources[header] = value.split(',')[0].trim();
+    const connInfo = serverRequest.conn;
+    if (!connInfo) {
+      throw new Error("无法获取连接信息");
     }
+
+    const remoteAddr = connInfo.remoteAddr;
+    assertIsNetAddr(remoteAddr);
+
+    // 返回远程主机地址
+    return remoteAddr.hostname;
+  } catch (error) {
+    console.error("获取IP地址时出错:", error);
+    return "未知IP";
   }
-
-  // 3. 检查Via头，可能包含代理信息
-  const via = ctx.request.headers.get('Via');
-  if (via) {
-    ipSources['Via'] = via;
-  }
-
-  // 4. 获取原始请求IP
-  ipSources['requestIP'] = ctx.request.ip;
-
-  // 打印所有收集到的IP信息，用于调试
-  console.log('收集到的所有IP信息:', JSON.stringify(ipSources, null, 2));
-
-  // 按优先级返回IP
-  // 优先使用 Cloudflare、可信代理和原始连接信息
-  return ipSources['CF-Connecting-IP'] ||
-         ipSources['True-Client-IP'] ||
-         ipSources['X-Real-IP'] ||
-         ipSources['remoteAddr'] ||
-         ipSources['X-Forwarded-For'] ||
-         ipSources['requestIP'] ||
-         '未知IP';
 }
 
 // 获取时区偏移量
@@ -84,14 +52,23 @@ function getTimezoneOffset(timezone: string): number {
 
 router.get("/geo", oakCors(), async (ctx) => {
   try {
-    // 从请求中获取客户端IP
+    // 从连接信息获取客户端IP
     const clientIP = getClientIP(ctx);
     console.log("访问者IP信息:", clientIP);
     
-    // 输出完整的请求头信息，用于调试
-    console.log("完整的请求头信息:");
-    for (const [key, value] of ctx.request.headers.entries()) {
-      console.log(`${key}: ${value}`);
+    // 输出连接信息，用于调试
+    try {
+      const serverRequest = ctx.request.originalRequest?.serverRequest;
+      if (serverRequest?.conn) {
+        console.log("连接信息:", {
+          localAddr: serverRequest.conn.localAddr,
+          remoteAddr: serverRequest.conn.remoteAddr,
+          rid: serverRequest.conn.rid,
+          transport: serverRequest.conn.transport,
+        });
+      }
+    } catch (e) {
+      console.error("获取连接信息失败:", e);
     }
     
     // 如果无法获取到有效的IP地址
@@ -135,7 +112,17 @@ router.get("/geo", oakCors(), async (ctx) => {
     ctx.response.status = 500;
     ctx.response.body = { 
       error: error.message,
-      headers: Object.fromEntries(ctx.request.headers.entries()) // 在错误响应中包含请求头信息，方便调试
+      debug: {
+        headers: Object.fromEntries(ctx.request.headers.entries()),
+        connection: ctx.request.originalRequest?.serverRequest?.conn 
+          ? {
+              localAddr: ctx.request.originalRequest.serverRequest.conn.localAddr,
+              remoteAddr: ctx.request.originalRequest.serverRequest.conn.remoteAddr,
+              rid: ctx.request.originalRequest.serverRequest.conn.rid,
+              transport: ctx.request.originalRequest.serverRequest.conn.transport,
+            }
+          : "无连接信息"
+      }
     };
   }
 });
