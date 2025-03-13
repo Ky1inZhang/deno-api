@@ -2,7 +2,7 @@ import { Application } from "https://deno.land/x/oak@v12.6.1/mod.ts";
 import { router as ipScoreRouter } from "./routes/ip_score.ts";
 import { router as ipGeoRouter } from "./routes/ip_geo.ts";
 import { router as ipVpnRouter } from "./routes/ip_vpn.ts";
-import {Marked} from "marked";
+import { Marked } from "marked";
 import geoRouter from "./routes/geo.ts";
 
 const app = new Application();

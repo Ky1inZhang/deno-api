@@ -6,23 +6,13 @@ const router = new Router();
 // 获取时区偏移量
 function getTimezoneOffset(timezone: string): number {
   try {
-    // 使用当前时间创建一个特定时区的日期对象
     const date = new Date();
-    // 获取UTC时间字符串
     const utcTime = date.toLocaleString('en-US', { timeZone: 'UTC' });
-    // 获取目标时区时间字符串
     const tzTime = date.toLocaleString('en-US', { timeZone: timezone });
-    
-    // 将两个时间字符串转换为Date对象
     const utcDate = new Date(utcTime);
     const tzDate = new Date(tzTime);
-    
-    // 计算时差（小时）
-    const hoursDiff = (tzDate.getTime() - utcDate.getTime()) / (1000 * 60 * 60);
-    
-    return hoursDiff;
-  } catch (error) {
-    console.error("计算时区偏移量时出错:", error);
+    return (tzDate.getTime() - utcDate.getTime()) / (1000 * 60 * 60);
+  } catch {
     return 0;
   }
 }
@@ -30,9 +20,7 @@ function getTimezoneOffset(timezone: string): number {
 // 验证IP地址格式
 function isValidIP(ip: string): boolean {
   const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
-  if (!ipv4Regex.test(ip)) {
-    return false;
-  }
+  if (!ipv4Regex.test(ip)) return false;
   const parts = ip.split('.').map(Number);
   return parts.every(part => part >= 0 && part <= 255);
 }
@@ -41,29 +29,31 @@ router.get("/geo/:ip", oakCors(), async (ctx) => {
   try {
     const ip = ctx.params.ip;
     if (!ip) {
-      throw new Error("请提供IP地址参数");
+      ctx.response.status = 400;
+      ctx.response.body = { error: "请提供IP地址参数" };
+      return;
     }
 
-    // 验证IP地址格式
     if (!isValidIP(ip)) {
-      throw new Error("无效的IP地址格式");
+      ctx.response.status = 400;
+      ctx.response.body = { error: "无效的IP地址格式" };
+      return;
     }
     
-    // 调用 ipinfo.io API
     const response = await fetch(`https://ipinfo.io/widget/demo/${ip}`);
     const data = await response.json();
-    console.log("ipinfo.io响应:", data);
     
     if (!data.data) {
-      throw new Error("Failed to fetch IP info");
+      ctx.response.status = 502;
+      ctx.response.body = { error: "无法从上游服务获取IP信息" };
+      return;
     }
 
     const ipInfo = data.data;
     const [latitude, longitude] = ipInfo.loc.split(",").map(Number);
     const timezoneOffset = getTimezoneOffset(ipInfo.timezone);
 
-    // 构造目标格式的响应
-    const result = {
+    ctx.response.body = {
       time_zone: {
         name: ipInfo.timezone,
         offset_with_dst: timezoneOffset
@@ -76,15 +66,13 @@ router.get("/geo/:ip", oakCors(), async (ctx) => {
       latitude: latitude,
       src: "l",
       country_flag: `https://ipgeolocation.io/static/flags/${ipInfo.country.toLowerCase()}_64.png`,
-      languages: "en" // 默认英语，可以根据国家代码扩展
+      languages: "en"
     };
-
-    ctx.response.body = result;
   } catch (error) {
-    console.error("Error:", error);
     ctx.response.status = 500;
     ctx.response.body = { 
-      error: error.message
+      error: "服务器内部错误",
+      detail: error.message
     };
   }
 });
