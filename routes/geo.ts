@@ -6,14 +6,23 @@ const router = new Router();
 // 获取时区偏移量
 function getTimezoneOffset(timezone: string): number {
   try {
+    // 使用当前时间创建一个特定时区的日期对象
     const date = new Date();
-    const options = { timeZone: timezone, timeZoneName: "short" } as const;
-    const formatter = new Intl.DateTimeFormat("en-US", options);
-    const parts = formatter.formatToParts(date);
-    const offset = parts.find(part => part.type === "timeZoneName")?.value || "";
-    const hours = parseInt(offset.replace(/[^+-]/g, "").split(":")[0]);
-    return hours;
-  } catch {
+    // 获取UTC时间字符串
+    const utcTime = date.toLocaleString('en-US', { timeZone: 'UTC' });
+    // 获取目标时区时间字符串
+    const tzTime = date.toLocaleString('en-US', { timeZone: timezone });
+    
+    // 将两个时间字符串转换为Date对象
+    const utcDate = new Date(utcTime);
+    const tzDate = new Date(tzTime);
+    
+    // 计算时差（小时）
+    const hoursDiff = (tzDate.getTime() - utcDate.getTime()) / (1000 * 60 * 60);
+    
+    return hoursDiff;
+  } catch (error) {
+    console.error("计算时区偏移量时出错:", error);
     return 0;
   }
 }
