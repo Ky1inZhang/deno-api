@@ -3,8 +3,29 @@ import { oakCors } from "https://deno.land/x/cors@v1.2.2/mod.ts";
 
 const router = new Router();
 
+// 国家时区映射表
+const COUNTRY_TIMEZONE_OFFSETS: Record<string, number> = {
+  "JP": 9,    // 日本
+  "CN": 8,    // 中国
+  "KR": 9,    // 韩国
+  "AU": 10,   // 澳大利亚
+  "US": -5,   // 美国（东部时间）
+  "GB": 0,    // 英国
+  "DE": 1,    // 德国
+  "FR": 1,    // 法国
+  "RU": 3,    // 俄罗斯（莫斯科）
+  "SG": 8,    // 新加坡
+  "IN": 5.5,  // 印度
+  "AE": 4,    // 阿联酋
+};
+
 // 获取时区偏移量
-function getTimezoneOffset(timezone: string): number {
+function getTimezoneOffset(country: string, timezone: string): number {
+  // 优先使用国家代码查找固定偏移
+  if (COUNTRY_TIMEZONE_OFFSETS[country]) {
+    return COUNTRY_TIMEZONE_OFFSETS[country];
+  }
+
   try {
     const date = new Date();
     const utcTime = date.toLocaleString('en-US', { timeZone: 'UTC' });
@@ -39,19 +60,26 @@ router.get("/geo/:ip", oakCors(), async (ctx) => {
       ctx.response.body = { error: "无效的IP地址格式" };
       return;
     }
+
+    // 从环境变量获取 token
+    const token = Deno.env.get("IPINFO_TOKEN");
+    if (!token) {
+      ctx.response.status = 500;
+      ctx.response.body = { error: "未配置 IPINFO_TOKEN 环境变量" };
+      return;
+    }
     
-    const response = await fetch(`https://ipinfo.io/widget/demo/${ip}`);
-    const data = await response.json();
+    const response = await fetch(`https://ipinfo.io/${ip}?token=${token}`);
+    const ipInfo = await response.json();
     
-    if (!data.data) {
+    if (!ipInfo || ipInfo.error) {
       ctx.response.status = 502;
       ctx.response.body = { error: "无法从上游服务获取IP信息" };
       return;
     }
 
-    const ipInfo = data.data;
-    const [latitude, longitude] = ipInfo.loc.split(",").map(Number);
-    const timezoneOffset = getTimezoneOffset(ipInfo.timezone);
+    const [latitude, longitude] = (ipInfo.loc || "0,0").split(",").map(Number);
+    const timezoneOffset = getTimezoneOffset(ipInfo.country, ipInfo.timezone);
 
     ctx.response.body = {
       time_zone: {
